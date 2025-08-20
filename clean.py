@@ -15,7 +15,6 @@ def clean_mi_pl_bs(file_path, sheet_name):
     # Multi-level header
     top_header_raw = header_df.iloc[0]
     bottom_header = header_df.iloc[1].tolist()
-
     top_header = top_header_raw.ffill().tolist()
 
     try:
@@ -53,6 +52,45 @@ def clean_mi_pl_bs(file_path, sheet_name):
     data.dropna(how="all", axis=1, inplace=True)
     data.dropna(how="all", axis=0, inplace=True)
     data.reset_index(drop=True, inplace=True)
+
+    # Scaling
+
+    # Read the full sheet into a temporary DataFrame to search for the indicator
+    full_sheet_df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
+
+    # Check all cells for the presence of a scaling indicator (e.g., '000s, £'000)
+    scaling_indicator_found = (
+        full_sheet_df.astype(str)
+        .apply(lambda x: x.str.contains("'000|000s", case=False))
+        .any()
+        .any()
+    )
+
+    if scaling_indicator_found:
+
+        numeric_cols = data.select_dtypes(include=np.number).columns
+
+        # Determine rows to scale based on the sheet name
+        if sheet_name == "PL":
+            rows_to_scale = data.index[:-6]
+        elif sheet_name == "BS":
+            rows_to_scale = data.index[:-1]
+        else:
+            # Default for any other sheets is to scale all rows
+            rows_to_scale = data.index
+
+        # Apply scaling
+        if len(rows_to_scale) > 0:
+            print(f"Attempting to scale {len(rows_to_scale)} rows for {sheet_name}...")
+            data.loc[rows_to_scale, numeric_cols] = (
+                data.loc[rows_to_scale, numeric_cols] * 1000
+            )
+        else:
+            print(f"Found 0 rows to scale for {sheet_name}. Skipping multiplication.")
+    else:
+        print(
+            f"No scaling indicator found in sheet '{sheet_name}'. Data will not be scaled."
+        )
 
     return data
 
