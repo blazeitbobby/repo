@@ -81,7 +81,6 @@ def clean_mi_pl_bs(file_path, sheet_name):
 
         # Apply scaling
         if len(rows_to_scale) > 0:
-            print(f"Attempting to scale {len(rows_to_scale)} rows for {sheet_name}...")
             data.loc[rows_to_scale, numeric_cols] = (
                 data.loc[rows_to_scale, numeric_cols] * 1000
             )
@@ -96,6 +95,9 @@ def clean_mi_pl_bs(file_path, sheet_name):
 
 
 def clean_mi_deferrals(file_path, sheet_name):
+    """
+    Clean 'Deferrals' sheet of MI pack.
+    """
 
     df = pd.read_excel(file_path, sheet_name)
     df_clean = df.dropna(how="all").dropna(how="all", axis=1)
@@ -268,3 +270,109 @@ def clean_s2_summary_sheet(file_path, sheet_name):
         cleaned_tables[name] = df
 
     return cleaned_tables
+
+
+def clean_version_control_solvency_balance_sheet(file_path, skip_rows, n_rows, element):
+    """
+    Process Main SOLVENCY BALANCE SHEET
+    """
+
+    df_headers = pd.read_excel(
+        file_path, header=None, skiprows=3, nrows=3, usecols=range(0, 21)
+    )
+
+    # Create combined header
+    header_part1 = df_headers.iloc[0].fillna("")
+    header_part2 = df_headers.iloc[1].fillna("")
+    header_part3 = df_headers.iloc[2].fillna("")
+
+    new_header = [
+        f"{h1} {h2} {h3}".strip()
+        for h1, h2, h3 in zip(header_part1, header_part2, header_part3)
+    ]
+
+    df = pd.read_excel(
+        file_path, header=None, skiprows=skip_rows, nrows=n_rows, usecols=range(0, 21)
+    )
+
+    df.columns = new_header
+
+    df = df.dropna(how="all").dropna(how="all", axis=1)
+
+    # Forward fill in col A
+    df.iloc[:, 0] = df.iloc[:, 0].ffill()
+
+    # Keep "Col C BS GAAP BS Jun-25" and "Col N BS SII BS Jun-25"
+    df_keep = df.iloc[:, [0, 1, 9, -1]]
+
+    df_filtered = df_keep[df_keep.count(axis=1) != 1]  # Remove rows wih all but one NaN
+
+    # Rename first column to `element`
+    old_name = df_filtered.columns[0]
+    df_filtered = df_filtered.rename(columns={old_name: element})
+
+    return df_filtered
+
+
+def clean_version_control_scr_review(file_path):
+    """
+    Process SCR Review
+    """
+
+    df = pd.read_excel(
+        file_path, header=None, skiprows=124, nrows=27, usecols=range(0, 22)
+    )
+
+    df = df.dropna(how="all").dropna(how="all", axis=1)
+
+    # Create combined header
+    header_part1 = df.iloc[0].fillna("")
+    header_part2 = df.iloc[1].fillna("")
+    new_header = [f"{h1} {h2}".strip() for h1, h2 in zip(header_part1, header_part2)]
+
+    # Apply header
+    df = df[2:]
+    df.columns = new_header
+
+    # Rename the final column
+    df = df.rename(columns={df.columns[-1]: "Comments"})
+
+    return df.reset_index(drop=True)
+
+
+def clean_version_control_s2_gaap(file_path, skip_rows):
+    """
+    Process GAAP to SII and SII to GAAP
+    """
+
+    df = pd.read_excel(
+        file_path, header=0, skiprows=skip_rows, nrows=23, usecols=range(23, 27)
+    )
+
+    df = df.dropna(how="all").dropna(how="all", axis=1)
+
+    return df
+
+
+def clean_version_control_s2_cap_prov_summary(file_path, skip_rows):
+    """
+    Process Capital Position Summary and Actual Solvency Position vs. Planned Solvency Position
+    """
+
+    df = pd.read_excel(
+        file_path, header=0, skiprows=skip_rows, nrows=11, usecols=range(27, 31)
+    )
+
+    df = df.dropna(how="all").dropna(how="all", axis=1)
+
+    numeric_cols = df.select_dtypes(include=np.number).columns
+
+    rows_to_exclude = df.index[[-1, -7]]
+
+    # Get the indices of the rows to scale by dropping the excluded ones
+    rows_to_scale = df.index.drop(rows_to_exclude)
+
+    # Scale the numeric values in the selected rows
+    df.loc[rows_to_scale, numeric_cols] = df.loc[rows_to_scale, numeric_cols] * 1000
+
+    return df
