@@ -219,7 +219,8 @@ def clean_s2_summary_sheet(file_path, sheet_name):
         nrows=2,
         usecols="B:F",
     )
-    shared_header_F = collapse_header(header_block_df.values.tolist())[-1]
+
+    shared_headers = collapse_header(header_block_df.values.tolist())
 
     regions = {
         "s2_balance_sheet": {"range": "A2:F41", "header_rows": 2},
@@ -251,14 +252,11 @@ def clean_s2_summary_sheet(file_path, sheet_name):
             df.columns = collapse_header(header_list)
             df = df.iloc[region["header_rows"] :].reset_index(drop=True)
             df = fill_merged_cells_in_groups(df)
-            df.rename(columns={df.columns[-1]: shared_header_F}, inplace=True)
+            df.rename(columns={df.columns[-1]: shared_headers[-1]}, inplace=True)
         else:
             first_col_header = df.iloc[0, 0]
-            num_cols = df.shape[1]
 
-            new_headers = [first_col_header]
-            new_headers.extend([""] * (num_cols - 2))
-            new_headers.append(shared_header_F)
+            new_headers = [first_col_header] + shared_headers[1:]
 
             df.columns = new_headers
             df = df.iloc[region["header_rows"] :].reset_index(drop=True)
