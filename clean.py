@@ -4,8 +4,7 @@ import pandas as pd
 
 def clean_mi_pl_bs(file_path, sheet_name):
     """
-    Designed for cleaning PL and BS.
-    Handle multi-level header.
+    Cleaning PL and BS.
     """
     # Read the two header rows
     header_df = pd.read_excel(
@@ -48,10 +47,17 @@ def clean_mi_pl_bs(file_path, sheet_name):
     # Combine data and headers
     data.columns = multi_header
 
+    # flatten multi-index
+    data.columns = [" ".join(col).strip() for col in data.columns.values]
+
     # Drop fully empty columns and rows
     data.dropna(how="all", axis=1, inplace=True)
     data.dropna(how="all", axis=0, inplace=True)
     data.reset_index(drop=True, inplace=True)
+
+    # Drop final unlabelled lines in PL
+    if sheet_name == "PL":
+        data = data[:-6]
 
     # Scaling
 
